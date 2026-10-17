@@ -1,0 +1,310 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pack Weight Tracker</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one column field sheet — totals and scale up top, cut list, habits, then gear grouped by category */
+:root{
+  --bg:#f3f4ef; --surface:#fbfbf8; --line:#d9dcd2; --fg:#1f2620; --muted:#66705f;
+  --accent:#2f6b4f; --accent-soft:#dbe8df; --warn:#9a6414; --bad:#b4442f; --good:#2f6b4f; --idea:#4f7fa8;
+  --c1:#2f6b4f; --c2:#4f7fa8; --c3:#c08a3e; --c4:#8a5d9e; --c5:#b4442f; --c6:#5f8f86; --c7:#9a9a5a; --c8:#7a6a58; --c9:#a8a8a0;
+  --display:"Barlow Condensed","Arial Narrow",sans-serif;
+  --body:"Barlow",system-ui,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#151a16; --surface:#1d231e; --line:#2f3830; --fg:#e7ebe3; --muted:#9aa595;
+  --accent:#6fb58f; --accent-soft:#24382c; --warn:#e0a84e; --bad:#e07a62; --good:#6fb58f; --idea:#86b3da; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#151a16; --surface:#1d231e; --line:#2f3830; --fg:#e7ebe3; --muted:#9aa595;
+  --accent:#6fb58f; --accent-soft:#24382c; --warn:#e0a84e; --bad:#e07a62; --good:#6fb58f; --idea:#86b3da; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45}
+.wrap{max-width:980px;margin:0 auto;padding-block:20px 64px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:28px}
+h1,h2{font-family:var(--display);font-weight:700;margin:0;text-wrap:balance;letter-spacing:.01em}
+h1{font-size:2.2rem;line-height:1}
+h2{font-size:1.35rem;text-transform:uppercase;letter-spacing:.06em}
+.muted{color:var(--muted)}
+section{display:grid;gap:12px;min-width:0}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.stat{background:var(--surface);padding:12px 14px;min-width:0}
+.stat .lbl{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.stat .val{font-family:var(--mono);font-size:1.4rem;font-weight:600;font-variant-numeric:tabular-nums}
+.stat .sub{font-family:var(--mono);font-size:13px;color:var(--muted)}
+.stat.total .val{color:var(--accent)}
+
+.track{position:relative;height:22px;background:var(--surface);border:1px solid var(--line);border-radius:4px;overflow:hidden}
+.seg-fill{position:absolute;top:0;bottom:0}
+.mark{position:absolute;top:0;bottom:0;width:2px;background:var(--fg)}
+.marks{position:relative;height:18px;font-size:12px;color:var(--muted)}
+.marks span{position:absolute;transform:translateX(-50%);white-space:nowrap}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:13px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+.verdict{font-weight:600}
+.short{display:none}
+.targets{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin-top:10px;font-size:14px;color:var(--muted)}
+.targets .tin{display:inline-flex;align-items:center;gap:4px;margin-right:8px}
+.targets input{width:64px;font:600 15px var(--mono);padding:5px 7px;border:1px solid var(--line);border-radius:4px;background:var(--surface);color:var(--fg)}
+
+.cuts{display:grid;gap:8px}
+.cut{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:12px;align-items:center;padding:10px 12px 10px 14px;background:var(--surface);border:1px solid var(--line);border-radius:6px}
+.cut .save{font-family:var(--mono);color:var(--good);font-weight:600;white-space:nowrap}
+.cut small{display:block;color:var(--muted)}
+.cut .tag{font-size:11px;text-transform:uppercase;letter-spacing:.08em;font-weight:600;margin-left:6px}
+.tag.swap{color:var(--good)} .tag.idea{color:var(--idea)} .tag.drop{color:var(--warn)}
+.cut.kind-drop .save{color:var(--warn)}
+.cut.kind-idea .save{color:var(--idea)}
+.btn{border:1px solid var(--accent);background:transparent;color:var(--accent);padding:7px 14px;border-radius:5px;font:600 14px var(--body);cursor:pointer;min-height:36px}
+.btn:hover{background:var(--accent-soft)}
+.btn.solid{background:var(--accent);color:var(--bg)}
+.more{justify-self:start}
+
+.habits{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.habit{padding:10px 14px;background:var(--surface);border:1px solid var(--line);border-radius:6px;display:grid;gap:2px}
+.habit b{display:flex;justify-content:space-between;gap:10px}
+.habit b span{font-family:var(--mono);color:var(--good);white-space:nowrap}
+.habit small{color:var(--muted)}
+
+.cat{border:1px solid var(--line);border-radius:8px;background:var(--surface);overflow:hidden}
+.cat-h{display:flex;justify-content:space-between;align-items:center;padding:8px 14px;border-bottom:1px solid var(--line);font-family:var(--display);font-size:1.1rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+.cat-h .sw{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:8px}
+.cat-h .num{font-family:var(--mono);font-size:14px;color:var(--muted);text-transform:none;letter-spacing:0}
+.row{display:grid;grid-template-columns:28px minmax(0,1.2fr) minmax(0,1.6fr) 96px 110px 32px;grid-template-areas:"chk name opt w type x";gap:8px;align-items:center;padding:6px 8px 6px 12px;border-bottom:1px solid var(--line)}
+.row:last-child{border-bottom:0}
+.row.off{opacity:.5}
+.row .chk{grid-area:chk;width:20px;height:20px;accent-color:var(--accent)}
+.row .name{grid-area:name} .row .opt{grid-area:opt;display:flex;align-items:center;gap:4px;min-width:0}
+.row .wbox{grid-area:w;position:relative} .row .type{grid-area:type} .row .x{grid-area:x}
+.row input[type=text],.row input[type=number],.row select{width:100%;min-width:0;font:inherit;font-size:15px;padding:6px 8px;border:1px solid transparent;border-radius:4px;background:transparent;color:var(--fg)}
+.row input:hover,.row select:hover{border-color:var(--line)}
+.row input:focus,.row select:focus{border-color:var(--accent);background:var(--bg)}
+.row .name{font-weight:600}
+.row .w{font-family:var(--mono);text-align:right;padding-right:22px!important;border-color:var(--line)!important}
+.row .wbox::after{content:"g";position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:12px;color:var(--muted);pointer-events:none}
+.row.missing .w{border-color:var(--warn)!important;background:color-mix(in srgb,var(--warn) 10%,transparent)}
+.row select{border-color:var(--line)}
+.row .type{font-size:13px}
+.x{border:0;background:none;color:var(--muted);cursor:pointer;font-size:22px;line-height:1;width:32px;height:32px}
+.x:hover{color:var(--bad)}
+.addopt{flex:none;font:600 12px var(--body);color:var(--accent);background:none;border:0;cursor:pointer;padding:6px 4px;white-space:nowrap}
+.foot{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.note{font-size:13px;color:var(--muted);max-width:65ch;margin:0}
+
+@media (max-width:700px){
+  h1{font-size:1.9rem}
+  .stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .long{display:none}.short{display:inline}
+  .habits{grid-template-columns:1fr}
+  .cut{grid-template-columns:minmax(0,1fr) auto;row-gap:6px}
+  .cut .save{grid-column:2;grid-row:1}
+  .cut .btn{grid-column:1/-1}
+  .row{grid-template-columns:28px minmax(0,1fr) 100px 32px;grid-template-areas:"chk name w x" ". opt opt opt" ". type type .";row-gap:4px;padding:10px 8px 10px 10px}
+  .row input[type=text],.row input[type=number],.row select{font-size:16px}
+  .row .type{max-width:170px}
+}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Pack Weight Tracker</h1>
+    <div class="muted">All weights in grams. Totals show pounds too.</div>
+    <div class="targets">
+      <label for="tComfort">Comfort target</label><span class="tin"><input type="number" inputmode="decimal" id="tComfort" min="1" step="0.5"> lb</span>
+      <label for="tMax">Max</label><span class="tin"><input type="number" inputmode="decimal" id="tMax" min="1" step="0.5"> lb</span>
+    </div>
+  </header>
+
+  <section class="stats" id="stats"></section>
+
+  <section style="gap:8px">
+    <div class="track" id="track"></div>
+    <div class="marks" id="marks"></div>
+    <div class="legend" id="legend"></div>
+    <div class="verdict" id="verdict"></div>
+  </section>
+
+  <section>
+    <h2>Where to cut</h2>
+    <p class="note">Add lighter options to any item with "+ option" and they show up here. <span class="tag swap" style="margin:0">Swap</span> = an option you added. <span class="tag idea" style="margin:0">Idea</span> = a typical lighter option, weight approximate. <span class="tag drop" style="margin:0">Leave</span> = optional item.</p>
+    <div class="cuts" id="cuts"></div>
+    <button class="btn more" id="more" hidden></button>
+  </section>
+
+  <section>
+    <h2>Habits that cut weight</h2>
+    <div class="habits" id="habits"></div>
+  </section>
+
+  <section>
+    <h2>Gear list</h2>
+    <p class="note">Tick to pack. Use the dropdown to swap gear and edit grams to fix a weight. Amber boxes still need a weight.</p>
+    <div id="list" style="display:grid;gap:14px"></div>
+    <div class="foot">
+      <button class="btn solid" id="add">Add item</button>
+      <button class="btn" id="blank">Start a blank list</button>
+      <span id="resetConfirm" hidden><span id="resetMsg"></span> <button class="btn" id="resetYes">Yes</button> <button class="btn" id="resetNo">Cancel</button></span>
+    </div>
+    <p class="note">Your list saves in this browser only. Anyone else who opens this page gets their own copy to edit.</p>
+  </section>
+</div>
+
+<script>
+const CATS=["Pack","Shelter","Sleep","Kitchen","Food & Water","Clothing","Tools","Comfort","Misc"];
+const CAT_COLOR={Pack:"var(--c1)",Shelter:"var(--c2)",Sleep:"var(--c3)",Kitchen:"var(--c4)","Food & Water":"var(--c6)",Clothing:"var(--c5)",Tools:"var(--c7)",Comfort:"var(--c8)",Misc:"var(--c9)"};
+let COMFORT=9072, MAX=11340;
+let uid=0;
+const o=(n,g)=>({n,g});
+const idea=(n,g)=>({n,g,idea:true});
+const SEED=()=>[
+ {cat:"Pack",name:"Backpack",opts:[o("Model",0)],sel:0,on:true,type:"base"},
+ {cat:"Shelter",name:"Tent or shelter",opts:[o("Model",0)],sel:0,on:true,type:"base"},
+ {cat:"Sleep",name:"Sleeping bag or quilt",opts:[o("Model",0)],sel:0,on:true,type:"base"},
+ {cat:"Sleep",name:"Sleeping pad",opts:[o("Model",0)],sel:0,on:true,type:"base"},
+ {cat:"Kitchen",name:"Cook system",opts:[o("Model",0)],sel:0,on:true,type:"base"},
+ {cat:"Food & Water",name:"Food",opts:[o("Food",0)],sel:0,on:true,type:"cons"},
+ {cat:"Food & Water",name:"Water",opts:[o("1 L",1000)],sel:0,on:true,type:"cons"},
+ {cat:"Clothing",name:"Rain jacket",opts:[o("Model",0)],sel:0,on:true,type:"base"},
+ {cat:"Clothing",name:"Insulation layer",opts:[o("Model",0)],sel:0,on:true,type:"base"},
+ {cat:"Tools",name:"Headlamp",opts:[o("Model",0)],sel:0,on:true,type:"base"},
+ {cat:"Misc",name:"First aid",opts:[o("Kit",0)],sel:0,on:true,type:"base"},
+ {cat:"Misc",name:"Toiletries",opts:[o("Kit",0)],sel:0,on:true,type:"base"},
+].map(x=>({...x,id:++uid}));
+const OPTIONAL=["Saw","Pillow","Chair","Mug","Drinks","Foam pad"];
+const HABITS=[
+ ["Drop stuff sacks","50–150 g","Use a pack liner and stuff loose; keep one sack for food."],
+ ["Repackage toiletries","30–60 g","Mini bottles, half a toothbrush, sunscreen in a small tube."],
+ ["Foam pad as your seat","500+ g vs. a chair","A thin foam pad doubles as a sit pad."],
+ ["Carry water to the next source","~1,000 g per litre","Check your map; 1 L between reliable sources is often enough."],
+ ["Pack food by calories","200–400 g","Aim for 125+ calories per ounce: nuts, oils, dried meals."],
+ ["Weigh everything once","varies","Guessed weights hide the heavy stuff. A kitchen scale settles it."],
+ ["Don't pack fears","varies","Anything you haven't used on the last three trips is a candidate to leave."],
+ ["Wear your warmest layer to camp only","varies","If it's cold enough to hike in, it's worn, not packed."],
+];
+
+const KEY="packweight.v2";
+let state;
+try{const s=JSON.parse(localStorage.getItem(KEY)); if(s&&s.items){state=s; uid=Math.max(0,...s.items.map(i=>i.id));}}catch(e){}
+if(!state) state={items:SEED()};
+if(!state.targets) state.targets={comfort:9072,max:11340};
+let showAll=false;
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(state))}catch(e){}};
+
+const w=i=>i.opts[i.sel]?.g||0;
+const fmt=g=>Math.round(g).toLocaleString()+" g";
+const lb=g=>(g/453.592).toFixed(2)+" lb";
+const both=g=>fmt(g)+" ("+lb(g)+")";
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+function totals(){
+  let base=0,cons=0,worn=0; const bycat={};
+  for(const i of state.items){ if(!i.on) continue; const g=w(i);
+    if(i.type==="base") base+=g; else if(i.type==="cons") cons+=g; else worn+=g;
+    if(i.type!=="worn") bycat[i.cat]=(bycat[i.cat]||0)+g; }
+  return {base,cons,worn,pack:base+cons,bycat};
+}
+
+const lbs=g=>Math.round(g/453.592*10)/10;
+function renderSummary(){
+  COMFORT=state.targets.comfort; MAX=state.targets.max;
+  const tc=document.getElementById("tComfort"), tm=document.getElementById("tMax");
+  if(document.activeElement!==tc) tc.value=lbs(COMFORT);
+  if(document.activeElement!==tm) tm.value=lbs(MAX);
+  const t=totals();
+  document.getElementById("stats").innerHTML=[["Base weight",t.base],["Consumables",t.cons],["Worn",t.worn],["Pack total",t.pack,"total"]]
+    .map(([l,v,c])=>`<div class="stat ${c||""}"><div class="lbl">${l}</div><div class="val">${fmt(v)}</div><div class="sub">${lb(v)}</div></div>`).join("");
+  const scaleMax=Math.max(MAX*1.08,t.pack*1.05);
+  let x=0,segs="";
+  const cats=CATS.filter(c=>t.bycat[c]>0);
+  for(const c of cats){const wd=t.bycat[c]/scaleMax*100; segs+=`<div class="seg-fill" title="${c}: ${fmt(t.bycat[c])}" style="left:${x}%;width:${wd}%;background:${CAT_COLOR[c]}"></div>`; x+=wd;}
+  const cp=COMFORT/scaleMax*100, mp=MAX/scaleMax*100;
+  segs+=`<div class="mark" style="left:${cp}%"></div><div class="mark" style="left:${mp}%;background:var(--bad)"></div>`;
+  document.getElementById("track").innerHTML=segs;
+  document.getElementById("marks").innerHTML=`<span style="left:${cp}%"><span class="long">Comfort ${fmt(COMFORT)} · </span>${lbs(COMFORT)} lb</span><span style="left:${mp}%"><span class="long">Max ${fmt(MAX)} · </span>${lbs(MAX)} lb</span>`;
+  document.getElementById("legend").innerHTML=cats.map(c=>`<span><i style="background:${CAT_COLOR[c]}"></i>${c} <span class="muted" style="font-family:var(--mono)">${fmt(t.bycat[c])}</span></span>`).join("");
+  const v=document.getElementById("verdict");
+  if(t.pack<=COMFORT){v.style.color="var(--good)";v.textContent=`${both(COMFORT-t.pack)} under your comfort target.`}
+  else if(t.pack<=MAX){v.style.color="var(--warn)";v.textContent=`${both(t.pack-COMFORT)} over comfort, ${both(MAX-t.pack)} under max.`}
+  else{v.style.color="var(--bad)";v.textContent=`${both(t.pack-MAX)} over your max.`}
+}
+
+function renderCuts(){
+  const cuts=[];
+  for(const i of state.items){
+    if(!i.on||i.type==="worn") continue;
+    const cur=w(i);
+    i.opts.forEach((op,k)=>{ if(k!==i.sel&&op.g>0&&op.g<cur) cuts.push({kind:op.idea?"idea":"swap",i,k,save:cur-op.g,txt:`${i.opts[i.sel].n} → ${op.n}`}); });
+    if(OPTIONAL.includes(i.name)&&cur>0) cuts.push({kind:"drop",i,save:cur,txt:`Leave the ${i.opts[i.sel].n} at home`});
+  }
+  // keep only the best cut per item, plus "leave" where it's bigger
+  cuts.sort((a,b)=>b.save-a.save);
+  const el=document.getElementById("cuts"), more=document.getElementById("more");
+  if(!cuts.length){el.innerHTML=`<div class="muted">No lighter options listed. Add one from the gear list with "+ option".</div>`;more.hidden=true;return;}
+  const shown=showAll?cuts:cuts.slice(0,8);
+  const label={swap:"Swap",idea:"Idea",drop:"Leave"};
+  el.innerHTML=shown.map((c,n)=>`<div class="cut kind-${c.kind}"><div><b>${esc(c.i.name)}</b><span class="tag ${c.kind}">${label[c.kind]}</span><small>${esc(c.txt)}</small></div><span class="save">−${c.kind==="idea"?"~":""}${fmt(c.save)}</span><button class="btn" data-cut="${n}">${c.kind==="drop"?"Leave it":"Swap"}</button></div>`).join("");
+  el.querySelectorAll("[data-cut]").forEach(b=>b.onclick=()=>{const c=shown[+b.dataset.cut]; if(c.kind==="drop") c.i.on=false; else c.i.sel=c.k; commit();});
+  const total=cuts.reduce((m,c)=>{m[c.i.id]=Math.max(m[c.i.id]||0,c.save);return m},{});
+  const sum=Object.values(total).reduce((a,b)=>a+b,0);
+  more.hidden=cuts.length<=8;
+  more.textContent=showAll?"Show fewer":`Show all ${cuts.length} ideas`;
+  el.insertAdjacentHTML("afterbegin",`<div class="muted" style="font-size:13px">Taking the biggest cut on every item would save about <b style="color:var(--fg)">${both(sum)}</b>.</div>`);
+}
+
+function renderHabits(){
+  document.getElementById("habits").innerHTML=HABITS.map(([t,s,d])=>`<div class="habit"><b>${t}<span>${s}</span></b><small>${d}</small></div>`).join("");
+}
+
+function renderList(){
+  const el=document.getElementById("list"); el.innerHTML="";
+  for(const cat of CATS){
+    const items=state.items.filter(i=>i.cat===cat); if(!items.length) continue;
+    const sub=items.filter(i=>i.on).reduce((s,i)=>s+w(i),0);
+    const box=document.createElement("div"); box.className="cat";
+    box.innerHTML=`<div class="cat-h"><span><span class="sw" style="background:${CAT_COLOR[cat]}"></span>${cat}</span><span class="num">${fmt(sub)}</span></div>`;
+    for(const i of items){
+      const r=document.createElement("div"); r.className="row"+(i.on?"":" off")+(i.on&&w(i)===0?" missing":"");
+      const optHtml=i.opts.length>1
+        ?`<select id="o${i.id}" aria-label="Option">${i.opts.map((op,k)=>`<option value="${k}" ${k===i.sel?"selected":""}>${op.idea?"Idea: ":""}${esc(op.n)} · ${op.idea?"~":""}${op.g} g</option>`).join("")}</select>`
+        :`<input type="text" id="n${i.id}" value="${esc(i.opts[0].n)}" aria-label="Model">`;
+      r.innerHTML=`<input type="checkbox" class="chk" id="c${i.id}" ${i.on?"checked":""} aria-label="Packed">
+        <input type="text" class="name" id="t${i.id}" value="${esc(i.name)}" aria-label="Item">
+        <div class="opt">${optHtml}<button class="addopt" title="Add an alternative to compare">+ option</button></div>
+        <div class="wbox"><input type="number" inputmode="numeric" class="w" id="w${i.id}" value="${w(i)}" min="0" step="1" aria-label="Weight in grams"></div>
+        <select class="type" id="y${i.id}" aria-label="Type"><option value="base">Base weight</option><option value="cons">Consumable</option><option value="worn">Worn</option></select>
+        <button class="x" title="Delete item" aria-label="Delete">×</button>`;
+      r.querySelector(".type").value=i.type;
+      r.querySelector(`#c${i.id}`).onchange=e=>{i.on=e.target.checked;commit()};
+      r.querySelector(`#t${i.id}`).onchange=e=>{i.name=e.target.value;commit()};
+      const sel=r.querySelector(`#o${i.id}`); if(sel) sel.onchange=e=>{i.sel=+e.target.value;commit()};
+      const nm=r.querySelector(`#n${i.id}`); if(nm) nm.onchange=e=>{i.opts[0].n=e.target.value;commit()};
+      r.querySelector(`#w${i.id}`).onchange=e=>{const op=i.opts[i.sel];op.g=Math.max(0,+e.target.value||0);op.idea=false;commit()};
+      r.querySelector(`#y${i.id}`).onchange=e=>{i.type=e.target.value;commit()};
+      r.querySelector(".x").onclick=()=>{state.items=state.items.filter(x=>x!==i);commit()};
+      r.querySelector(".addopt").onclick=()=>{i.opts.push(o("New option",w(i)));i.sel=i.opts.length-1;commit()};
+      box.appendChild(r);
+    }
+    el.appendChild(box);
+  }
+}
+
+function commit(){save();render()}
+function render(){renderSummary();renderCuts();renderList()}
+
+document.getElementById("more").onclick=()=>{showAll=!showAll;renderCuts()};
+document.getElementById("add").onclick=()=>{state.items.push({id:++uid,cat:"Misc",name:"New item",opts:[o("Model",0)],sel:0,on:true,type:"base"});commit();const t=document.getElementById("t"+uid);t&&t.select()};
+const rc=document.getElementById("resetConfirm");
+let pending=null;
+const BLANK=()=>["Backpack:Pack","Shelter:Shelter","Sleeping bag or quilt:Sleep","Sleeping pad:Sleep","Cook system:Kitchen","Food:Food & Water","Water:Food & Water","Rain jacket:Clothing","Insulation layer:Clothing","Headlamp:Tools","First aid:Misc","Toiletries:Misc"].map(s=>{const [n,c]=s.split(":");return {id:++uid,cat:c,name:n,opts:[o("Model",0)],sel:0,on:true,type:c==="Food & Water"?"cons":"base"}});
+document.getElementById("blank").onclick=()=>{pending="blank";document.getElementById("resetMsg").textContent="Clear your list and start fresh?";rc.hidden=false};
+document.getElementById("resetNo").onclick=()=>{rc.hidden=true};
+document.getElementById("resetYes").onclick=()=>{uid=0;const tg=state.targets;state={items:pending==="blank"?BLANK():SEED(),targets:tg,noGroundsheet:true};rc.hidden=true;commit();window.scrollTo({top:0})};
+for(const [id,k] of [["tComfort","comfort"],["tMax","max"]]) document.getElementById(id).onchange=e=>{const v=parseFloat(e.target.value);if(v>0){state.targets[k]=Math.round(v*453.592);commit()}};
+renderHabits();
+render();
+</script>
+
+</html>
