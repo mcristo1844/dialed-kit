@@ -142,10 +142,12 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
   <section>
     <h2>Gear list</h2>
     <p class="note">Tick to pack. Use the dropdown to swap gear and edit grams to fix a weight. Amber boxes still need a weight.</p>
+    <p class="note" id="exampleNote" style="color:var(--fg);font-weight:600">This is an example list. Edit the items to match your gear, or start a blank list.</p>
     <div id="list" style="display:grid;gap:14px"></div>
     <div class="foot">
       <button class="btn solid" id="add">Add item</button>
       <button class="btn" id="blank">Start a blank list</button>
+      <button class="btn" id="reset">Load example list</button>
       <span id="resetConfirm" hidden><span id="resetMsg"></span> <button class="btn" id="resetYes">Yes</button> <button class="btn" id="resetNo">Cancel</button></span>
     </div>
     <p class="note">Your list saves in this browser only. Anyone else who opens this page gets their own copy to edit.</p>
@@ -160,20 +162,25 @@ let uid=0;
 const o=(n,g)=>({n,g});
 const idea=(n,g)=>({n,g,idea:true});
 const SEED=()=>[
- {cat:"Pack",name:"Backpack",opts:[o("Model",0)],sel:0,on:true,type:"base"},
- {cat:"Shelter",name:"Tent or shelter",opts:[o("Model",0)],sel:0,on:true,type:"base"},
- {cat:"Sleep",name:"Sleeping bag or quilt",opts:[o("Model",0)],sel:0,on:true,type:"base"},
- {cat:"Sleep",name:"Sleeping pad",opts:[o("Model",0)],sel:0,on:true,type:"base"},
- {cat:"Kitchen",name:"Cook system",opts:[o("Model",0)],sel:0,on:true,type:"base"},
- {cat:"Food & Water",name:"Food",opts:[o("Food",0)],sel:0,on:true,type:"cons"},
- {cat:"Food & Water",name:"Water",opts:[o("1 L",1000)],sel:0,on:true,type:"cons"},
- {cat:"Clothing",name:"Rain jacket",opts:[o("Model",0)],sel:0,on:true,type:"base"},
- {cat:"Clothing",name:"Insulation layer",opts:[o("Model",0)],sel:0,on:true,type:"base"},
- {cat:"Tools",name:"Headlamp",opts:[o("Model",0)],sel:0,on:true,type:"base"},
- {cat:"Misc",name:"First aid",opts:[o("Kit",0)],sel:0,on:true,type:"base"},
- {cat:"Misc",name:"Toiletries",opts:[o("Kit",0)],sel:0,on:true,type:"base"},
+ {cat:"Pack",name:"Backpack",opts:[o("Framed 55 L pack",1100),idea("Frameless 40 L pack",450)],sel:0,on:true,type:"base"},
+ {cat:"Shelter",name:"Tent",opts:[o("Freestanding 2-person tent",1500),idea("Trekking-pole tent",800)],sel:0,on:true,type:"base"},
+ {cat:"Sleep",name:"Sleeping bag",opts:[o("Synthetic 30°F bag",1200),idea("30°F down quilt",600)],sel:0,on:true,type:"base"},
+ {cat:"Sleep",name:"Sleeping pad",opts:[o("Self-inflating pad",900),idea("Ultralight inflatable pad",400)],sel:0,on:true,type:"base"},
+ {cat:"Sleep",name:"Pillow",opts:[o("Inflatable pillow",120)],sel:0,on:true,type:"base"},
+ {cat:"Kitchen",name:"Cook system",opts:[o("Stove, pot and fuel",450),idea("Small stove + titanium pot",250)],sel:0,on:true,type:"base"},
+ {cat:"Kitchen",name:"Lighter",opts:[o("Mini lighter",12)],sel:0,on:true,type:"base"},
+ {cat:"Food & Water",name:"Food",opts:[o("2 days",1600)],sel:0,on:true,type:"cons"},
+ {cat:"Food & Water",name:"Water",opts:[o("2 L",2000),o("1 L (refill more often)",1000)],sel:0,on:true,type:"cons"},
+ {cat:"Clothing",name:"Rain jacket",opts:[o("Rain jacket",350)],sel:0,on:true,type:"base"},
+ {cat:"Clothing",name:"Insulation layer",opts:[o("Fleece",450),idea("Down jacket",300)],sel:0,on:true,type:"base"},
+ {cat:"Clothing",name:"Hiking clothes",opts:[o("Shirt, shorts, socks",500)],sel:0,on:true,type:"worn"},
+ {cat:"Tools",name:"Headlamp",opts:[o("Headlamp",80)],sel:0,on:true,type:"base"},
+ {cat:"Tools",name:"Trekking poles",opts:[o("Aluminum poles",550),idea("Carbon poles",300)],sel:0,on:true,type:"base"},
+ {cat:"Comfort",name:"Camp chair",opts:[o("Folding chair",600)],sel:0,on:true,type:"base"},
+ {cat:"Misc",name:"First aid",opts:[o("First aid kit",150)],sel:0,on:true,type:"base"},
+ {cat:"Misc",name:"Toiletries",opts:[o("Toiletries",150)],sel:0,on:true,type:"base"},
 ].map(x=>({...x,id:++uid}));
-const OPTIONAL=["Saw","Pillow","Chair","Mug","Drinks","Foam pad"];
+const OPTIONAL=["Saw","Pillow","Chair","Camp chair","Mug","Drinks","Foam pad"];
 const HABITS=[
  ["Drop stuff sacks","50–150 g","Use a pack liner and stuff loose; keep one sack for food."],
  ["Repackage toiletries","30–60 g","Mini bottles, half a toothbrush, sunscreen in a small tube."],
@@ -188,7 +195,7 @@ const HABITS=[
 const KEY="packweight.v2";
 let state;
 try{const s=JSON.parse(localStorage.getItem(KEY)); if(s&&s.items){state=s; uid=Math.max(0,...s.items.map(i=>i.id));}}catch(e){}
-if(!state) state={items:SEED()};
+if(!state) state={items:SEED(),example:true};
 if(!state.targets) state.targets={comfort:9072,max:11340};
 let showAll=false;
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(state))}catch(e){}};
@@ -292,16 +299,19 @@ function renderList(){
 }
 
 function commit(){save();render()}
-function render(){renderSummary();renderCuts();renderList()}
+function markEdited(){ if(state.example){ state.example=false; } }
+function render(){document.getElementById("exampleNote").hidden=!state.example;renderSummary();renderCuts();renderList()}
 
 document.getElementById("more").onclick=()=>{showAll=!showAll;renderCuts()};
+document.getElementById("list").addEventListener("change",()=>{if(state.example){state.example=false;save();document.getElementById("exampleNote").hidden=true}});
 document.getElementById("add").onclick=()=>{state.items.push({id:++uid,cat:"Misc",name:"New item",opts:[o("Model",0)],sel:0,on:true,type:"base"});commit();const t=document.getElementById("t"+uid);t&&t.select()};
 const rc=document.getElementById("resetConfirm");
 let pending=null;
 const BLANK=()=>["Backpack:Pack","Shelter:Shelter","Sleeping bag or quilt:Sleep","Sleeping pad:Sleep","Cook system:Kitchen","Food:Food & Water","Water:Food & Water","Rain jacket:Clothing","Insulation layer:Clothing","Headlamp:Tools","First aid:Misc","Toiletries:Misc"].map(s=>{const [n,c]=s.split(":");return {id:++uid,cat:c,name:n,opts:[o("Model",0)],sel:0,on:true,type:c==="Food & Water"?"cons":"base"}});
+document.getElementById("reset").onclick=()=>{pending="sample";document.getElementById("resetMsg").textContent="Replace your list with the example?";rc.hidden=false};
 document.getElementById("blank").onclick=()=>{pending="blank";document.getElementById("resetMsg").textContent="Clear your list and start fresh?";rc.hidden=false};
 document.getElementById("resetNo").onclick=()=>{rc.hidden=true};
-document.getElementById("resetYes").onclick=()=>{uid=0;const tg=state.targets;state={items:pending==="blank"?BLANK():SEED(),targets:tg,noGroundsheet:true};rc.hidden=true;commit();window.scrollTo({top:0})};
+document.getElementById("resetYes").onclick=()=>{uid=0;const tg=state.targets;state={items:pending==="blank"?BLANK():SEED(),targets:tg,example:pending!=="blank"};rc.hidden=true;commit();window.scrollTo({top:0})};
 for(const [id,k] of [["tComfort","comfort"],["tMax","max"]]) document.getElementById(id).onchange=e=>{const v=parseFloat(e.target.value);if(v>0){state.targets[k]=Math.round(v*453.592);commit()}};
 renderHabits();
 render();
